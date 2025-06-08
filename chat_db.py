@@ -8,11 +8,12 @@ utilizando SQLAlchemy con PostgreSQL.
 import os
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import List, Optional, Generator
+from textwrap import fill
+from typing import Generator, List, Optional
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, create_engine, func
+from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine, func
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import declarative_base, sessionmaker, Session
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 # Configuración de la base de datos desde variables de entorno
 DB_USER = os.getenv("DB_USER", "chatuser")
@@ -51,7 +52,7 @@ class Message(Base):  # type: ignore
         created_at: Fecha y hora de creación
     """
     __tablename__ = "messages"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     role = Column(String(20), nullable=False, index=True)  # user o assistant
     content = Column(Text, nullable=False)
@@ -98,13 +99,13 @@ def add_message(role: str, content: str) -> dict:
         raise ValueError("El rol es requerido y debe ser un string")
     if not content or not isinstance(content, str):
         raise ValueError("El contenido es requerido y debe ser un string")
-    
+
     try:
         with get_db() as db:
             message = Message(role=role.lower(), content=content)
             db.add(message)
             db.commit()
-            
+
             # Crear un diccionario con los datos del mensaje para evitar problemas de sesión
             message_dict = {
                 "id": message.id,
@@ -152,26 +153,26 @@ def get_all_messages(
                     .order_by(Message.created_at.desc())
                     .first()
                 )
-                
+
                 if separator_query:
                     last_separator_id = separator_query[0]
-            
+
             # Construir la consulta base
             query = db.query(Message)
-            
+
             # Filtrar mensajes por conversación actual si es necesario
             if current_conversation_only and last_separator_id:
                 query = query.filter(Message.id >= last_separator_id)
-            
+
             # Aplicar filtros adicionales
             if search:
                 query = query.filter(Message.content.ilike(f"%{search}%"))
             if role:
                 query = query.filter(Message.role == role.lower())
-            
+
             # Obtener el total de mensajes (para paginación)
             total = query.count()
-            
+
             # Aplicar ordenamiento y paginación
             db_messages = (
                 query.order_by(Message.created_at.desc())
@@ -179,7 +180,7 @@ def get_all_messages(
                 .limit(limit if limit and limit > 0 else 100)
                 .all()
             )
-            
+
             # Convertir objetos SQLAlchemy a diccionarios para evitar problemas de sesión
             messages = [
                 {
@@ -190,9 +191,9 @@ def get_all_messages(
                 }
                 for msg in db_messages
             ]
-            
+
             return messages, total
-            
+
     except SQLAlchemyError as e:
         raise SQLAlchemyError(f"Error al obtener mensajes: {str(e)}")
 
@@ -207,27 +208,26 @@ def format_message_for_display(message: Message, max_width: int = 80) -> str:
     Returns:
         String formateado para mostrar en terminal
     """
-    from textwrap import fill
     from datetime import timezone
-    
+
     # Convertir a zona horaria local si está en UTC
     created_at = message.created_at
     if created_at.tzinfo == timezone.utc:
         created_at = created_at.replace(tzinfo=timezone.utc).astimezone()
-    
+
     # Encabezado del mensaje
     role_display = "👤 Tú" if message.role == "user" else "🤖 Asistente"
     timestamp = created_at.strftime("%Y-%m-%d %H:%M:%S")
     header = f"[{timestamp}] {role_display}:"
-    
+
     # Formatear el contenido con ajuste de línea
     content = fill(
-        message.content,
+        str(message.content),
         width=max_width,
         initial_indent="  ",
         subsequent_indent="  "
     )
-    
+
     return f"{header}\n{content}\n"
 
 
@@ -243,11 +243,11 @@ def get_chat_summary() -> dict:
             total_msgs = db.query(Message).count()
             user_msgs = db.query(Message).filter_by(role="user").count()
             assistant_msgs = db.query(Message).filter_by(role="assistant").count()
-            
+
             # Obtener la fecha del primer y último mensaje
             first_msg = db.query(Message).order_by(Message.created_at).first()
             last_msg = db.query(Message).order_by(Message.created_at.desc()).first()
-            
+
             return {
                 "total_messages": total_msgs,
                 "user_messages": user_msgs,
@@ -258,7 +258,7 @@ def get_chat_summary() -> dict:
                     db.query(func.avg(func.length(Message.content))).scalar() or 0
                 )
             }
-            
+
     except SQLAlchemyError as e:
         raise SQLAlchemyError(f"Error al obtener resumen del chat: {str(e)}")
 
@@ -301,30 +301,29 @@ def clear_chat_history() -> None:
         raise SQLAlchemyError(f"Error al limpiar el historial: {str(e)}")
 
 
-def create_new_conversation() -> None:
+def create_new_conversation() -> bool:
     """Crea una nueva conversación añadiendo un mensaje de sistema como separador.
     
     Esta función añade un marcador en la base de datos para indicar el inicio de
     una nueva conversación, lo que ayuda a evitar la contaminación del contexto entre
     sesiones diferentes. Se llama automáticamente al iniciar una nueva sesión interactiva.
     
+    Returns:
+        bool: True si la operación fue exitosa, False en caso de error
+        
     Raises:
         SQLAlchemyError: Si ocurre un error en la base de datos
     """
     try:
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-        separator_message = f"--- NUEVA CONVERSACIÓN INICIADA: {timestamp} ---"
-        
         with get_db() as db:
-            # Añadir un mensaje especial de sistema como marcador de nueva conversación
+            # Agregar mensaje de sistema como separador
             new_message = Message(
                 role="system",
-                content=separator_message,
-                created_at=datetime.now(timezone.utc)
+                content="--- NUEVA CONVERSACIÓN"
             )
             db.add(new_message)
             db.commit()
-            
+
         return True
     except SQLAlchemyError as e:
         print(f"Error al crear nueva conversación: {str(e)}")

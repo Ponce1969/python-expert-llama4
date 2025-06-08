@@ -15,19 +15,30 @@ Características:
 import os
 import time
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict, List, TypedDict
 
 import typer
 from rich.console import Console
-from rich.panel import Panel
 from rich.markdown import Markdown
+from rich.panel import Panel
 from rich.status import Status
 
-from chat_db import add_message, get_all_messages, Message
+from chat_db import add_message, get_all_messages
 from groq_client import stream_response
 
+
+# Definición de tipo para la configuración
+class ConfigDict(TypedDict):
+    max_chunk_size: int
+    default_model: str
+    default_temperature: float
+    default_max_tokens: int
+    show_usage: bool
+    auto_scroll: bool
+    confirm_continue: bool
+
 # Configuración
-CONFIG = {
+CONFIG: ConfigDict = {
     'max_chunk_size': 30,  # palabras por chunk
     'default_model': os.environ.get('DEFAULT_MODEL', 'meta-llama/llama-4-scout-17b-16e-instruct'),
     'default_temperature': float(os.environ.get('DEFAULT_TEMPERATURE', 0.3)),
@@ -82,7 +93,7 @@ def process_stream(
     current_chunk = []
     chunk_count = 0
     start_time = time.time()
-    
+
     # Mostrar estado inicial
     with Status("[bold green]Generando respuesta...[/bold green]") as status:
         try:
@@ -92,20 +103,20 @@ def process_stream(
                 model=model,
                 max_tokens=max_tokens,
                 temperature=temperature,
-                chunk_size=CONFIG['max_chunk_size'],
+                chunk_size=int(CONFIG['max_chunk_size']),
                 on_chunk=on_chunk_callback
             )
-            
+
             # Procesar cada chunk
             for chunk_data in stream:
                 if chunk_data.get('error'):
                     console.print(f"[red]Error: {chunk_data['error']}")
                     break
-                    
+
                 chunk = chunk_data['chunk']
                 current_chunk.append(chunk)
                 full_response.append(chunk)
-                
+
                 # Actualizar estado
                 if CONFIG['show_usage'] and 'usage' in chunk_data:
                     usage = chunk_data['usage']
@@ -113,30 +124,30 @@ def process_stream(
                         f"[bold green]Generando...[/bold green] "
                         f"[dim]({usage['total_tokens']} tokens)[/dim]"
                     )
-                
+
                 # Mostrar el chunk actual
                 if chunk.strip():
                     console.print(chunk, end="", highlight=False)
-                
+
                 # Manejar pausa si el chunk es grande
-                if (len(''.join(current_chunk).split()) > CONFIG['max_chunk_size'] * 3 and 
+                if (len(''.join(current_chunk).split()) > int(CONFIG['max_chunk_size']) * 3 and
                     CONFIG['confirm_continue'] and not chunk_data.get('finished')):
                     console.print("\n[bold yellow]\n--- Presiona Enter para continuar (q para salir) ---[/bold yellow]")
                     user_input = input().lower()
                     if user_input == 'q':
                         break
                     current_chunk = []
-            
+
             # Mostrar resumen
             end_time = time.time()
             console.print(f"\n[dim]Tiempo de generación: {end_time - start_time:.2f}s[/dim]")
-            
+
             return ''.join(full_response), {
                 'model': model,
                 'tokens': chunk_data.get('usage', {}).get('total_tokens', 0) if 'chunk_data' in locals() else 0,
                 'time_elapsed': end_time - start_time
             }
-            
+
         except KeyboardInterrupt:
             console.print("\n[red]Generación interrumpida por el usuario")
             return ''.join(full_response), {'interrupted': True}
@@ -180,7 +191,7 @@ def ask(
         CONFIG['default_model'], "--model", "-m", help="Modelo a utilizar"
     ),
     temperature: float = typer.Option(
-        CONFIG['default_temperature'], "--temperature", "-t", 
+        CONFIG['default_temperature'], "--temperature", "-t",
         help="Temperatura para la generación (0.0-1.0)"
     ),
     max_tokens: int = typer.Option(
@@ -199,15 +210,15 @@ def ask(
     try:
         # Añadir pregunta al historial
         add_message("user", question)
-        
+
         # Mostrar la pregunta
         console.print(f"\n[bold blue]Tú:[/bold blue] {question}\n")
-        
-        # Obtener historial para el contexto solo de la conversación actual 
+
+        # Obtener historial para el contexto solo de la conversación actual
         # El parámetro current_conversation_only=True (por defecto) asegura que solo se obtengan
         # los mensajes desde el último separador de conversación
         message_records, _ = get_all_messages(limit=20, current_conversation_only=True)
-        
+
         # Convertir registros a formato para la API
         messages = []
         for msg in message_records:
@@ -217,12 +228,12 @@ def ask(
             else:
                 role = "user" if msg.role == "user" else "assistant"
                 content = msg.content
-            
+
             messages.append({"role": role, "content": content})
-        
+
         # Procesar la respuesta con manejo de streaming
         console.print("[bold green]Asistente:[/bold green] ", end="")
-        
+
         # Obtener la respuesta con streaming controlado
         response, metadata = process_stream(
             messages=messages,
@@ -230,18 +241,18 @@ def ask(
             temperature=max(0, min(1, temperature)),  # Asegurar valor entre 0 y 1
             max_tokens=max_tokens,
         )
-        
+
         # Mostrar resumen de uso si está habilitado
         if CONFIG['show_usage'] and 'tokens' in metadata:
             console.print(
                 f"\n[dim]Tokens usados: {metadata['tokens']} | "
                 f"Tiempo: {metadata['time_elapsed']:.1f}s"
             )
-        
+
         # Guardar la respuesta en la base de datos
         if not metadata.get('interrupted') and not metadata.get('error'):
             add_message("assistant", response)
-        
+
     except Exception as e:
         console.print(f"[red]Error:[/] {str(e)}")
         raise typer.Exit(1)
@@ -268,22 +279,28 @@ def history(
     """
     """Muestra el historial de la conversación."""
     messages_result = get_all_messages()
-    messages: List[Message] = messages_result[0]
-    
+    # Corregimos la anotación de tipo para coincidir con lo que devuelve get_all_messages
+    messages = messages_result[0]  # List[dict], no List[Message]
+
     if not messages:
         console.print("[yellow]No hay historial de mensajes.[/]")
         return
-    
+
     if not full:
         messages = messages[-limit:] if limit > 0 else messages
-    
+
     console.print("\n[bold]📜 Historial de la conversación:[/]\n")
-    
+
     for msg in messages:
-        role_display = "👤 Tú" if msg.role == "user" else "🤖 Asistente"
-        timestamp = msg.created_at.strftime("%Y-%m-%d %H:%M:%S")
+        role_display = "👤 Tú" if msg['role'] == "user" else "🤖 Asistente"
+        # Convertir el timestamp ISO a objeto datetime si es un string
+        if isinstance(msg['created_at'], str):
+            from datetime import datetime
+            timestamp = datetime.fromisoformat(msg['created_at']).strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            timestamp = msg['created_at'].strftime("%Y-%m-%d %H:%M:%S")
         console.print(f"[dim]{timestamp}[/] - {role_display}:")
-        console.print(Markdown(msg.content), justify="left")
+        console.print(Markdown(msg['content']), justify="left")
         console.print()  # Espacio entre mensajes
 
 
@@ -321,40 +338,40 @@ def export(
     Por defecto exporta a Markdown (.md). Para exportar a PDF se requiere Pandoc.
     """
     try:
-        from exporter import export_markdown, convert_md_to_pdf
+        from exporter import convert_md_to_pdf, export_markdown
     except ImportError as e:
         console.print(f"[red]Error:[/] {e}")
         console.print("Instala las dependencias necesarias con: pip install -r requirements.txt")
         raise typer.Exit(1)
-    
+
     format = format.lower()
     if format not in EXPORT_FORMATS:
         console.print(f"[red]Error:[/] Formato no soportado. Usa uno de: {', '.join(EXPORT_FORMATS)}")
         raise typer.Exit(1)
-    
+
     # Obtener mensajes
     messages = get_all_messages()
     if not messages:
         console.print("[yellow]No hay mensajes para exportar.[/]")
         return
-    
+
     # Configurar nombres de archivo
     export_dir = ensure_export_dir()
     base_name = output or "chat_export"
     md_file = export_dir / f"{base_name}.md"
-    
+
     try:
         # Exportar a Markdown
         md_content = export_markdown(messages)
         md_file.write_text(md_content, encoding="utf-8")
         console.print(f"✓ [green]Exportado:[/] {md_file.absolute()}")
-        
+
         # Convertir a PDF si es necesario
         if format == "pdf":
             pdf_file = export_dir / f"{base_name}.pdf"
             convert_md_to_pdf(str(md_file), str(pdf_file))
             console.print(f"✓ [green]Exportado:[/] {pdf_file.absolute()}")
-            
+
     except Exception as e:
         console.print(f"[red]Error al exportar:[/] {str(e)}")
         raise typer.Exit(1)
@@ -368,10 +385,10 @@ def main() -> None:
     try:
         # Mostrar mensaje de bienvenida
         display_welcome()
-        
+
         # Iniciar la aplicación Typer
         app()
-        
+
     except KeyboardInterrupt:
         console.print("\n[blue]¡Hasta luego![/] 👋")
         raise typer.Exit(0)

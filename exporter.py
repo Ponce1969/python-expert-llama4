@@ -1,5 +1,5 @@
 import subprocess
-from pathlib import Path
+
 
 def export_markdown(messages):
     lines = []
