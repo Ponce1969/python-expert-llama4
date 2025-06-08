@@ -35,3 +35,7 @@ tests/
 *.log
 .DS_Store
 Thumbs.db
+
+# GitHub (mantener solo en local por ahora)
+.github/workflows/
+
