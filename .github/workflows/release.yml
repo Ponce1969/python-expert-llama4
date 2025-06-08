@@ -1,9 +1,13 @@
 name: Release
 
+# Workflow temporalmente desactivado hasta que esté listo para releases
 on:
-  push:
-    tags:
-      - 'v*'
+  # Commented out to disable automatic runs
+  # push:
+  #   tags:
+  #     - 'v*'
+  # Para ejecutar manualmente si es necesario
+  workflow_dispatch:
 
 jobs:
   release:

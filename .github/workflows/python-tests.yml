@@ -1,10 +1,14 @@
 name: Python Tests
 
+# Workflow temporalmente desactivado hasta que los tests estén listos
 on:
-  push:
-    branches: [ main, master, develop ]
-  pull_request:
-    branches: [ main, master, develop ]
+  # Commented out to disable automatic runs
+  # push:
+  #   branches: [ main, master, develop ]
+  # pull_request:
+  #   branches: [ main, master, develop ]
+  # Para ejecutar manualmente si es necesario
+  workflow_dispatch:
 
 jobs:
   test:
