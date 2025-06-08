@@ -1,0 +1,37 @@
+# Entorno virtual y cache
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Archivos de base de datos local
+chat.db
+*.db
+*.sqlite3
+
+# Configuraciones y dependencias
+.env
+uv.json
+uv.lock
+.python-version
+
+# Tests (mantener solo en local por ahora)
+tests/
+.pytest_cache/
+.coverage
+.hypothesis/
+
+# IDE y editores
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs y archivos temporales
+*.log
+.DS_Store
+Thumbs.db

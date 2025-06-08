@@ -1,0 +1,9 @@
+groq
+python-dotenv
+sqlalchemy
+psycopg2-binary
+rich
+typer[all]
+markdown
+weasyprint
+

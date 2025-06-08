@@ -1,0 +1,37 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_USER: chatuser
+      POSTGRES_PASSWORD: chatpass
+      POSTGRES_DB: chatdb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatuser -d chatdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://chatuser:chatpass@db:5432/chatdb
+    volumes:
+      - .:/app:delegated
+    depends_on:
+      db:
+        condition: service_healthy
+    # Modo interactivo para mantener el contenedor en ejecución
+    stdin_open: true
+    tty: true
+    # Ejecutar la aplicación en modo interactivo con llama-4-scout optimizado
+    command: python interactive.py
+
+volumes:
+  postgres_data:
+

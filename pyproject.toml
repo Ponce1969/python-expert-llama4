@@ -1,0 +1,103 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chat_llama_groq"
+version = "0.1.0"
+description = "CLI para interactuar con modelos Llama a través de la API de Groq"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+    {name = "Gonzalo Python", email = "gonzalo@example.com"}
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/gonzapython/Chat_llama_groq"
+"Bug Tracker" = "https://github.com/gonzapython/Chat_llama_groq/issues"
+
+[project.scripts]
+chat-llama-groq = "app:app"
+
+[tool.setuptools]
+packages = ["chat_llama_groq"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+plugins = ["sqlalchemy.ext.mypy.plugin"]
+
+[[tool.mypy.overrides]]
+module = ["dotenv.*", "groq.*", "sqlalchemy.*", "typer.*", "rich.*"]
+ignore_missing_imports = true
+
+[tool.ruff]
+# Excluir directorios y archivos
+exclude = [
+    ".git",
+    "__pycache__",
+    "*.pyc",
+    "*.pyo",
+    "*.pyd",
+    ".venv",
+    "venv",
+    "env",
+    "build",
+    "dist",
+]
+
+# Reglas a habilitar
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "W",   # pycodestyle warnings
+]
+
+# Ignorar algunas reglas
+ignore = [
+    "E501",  # Líneas demasiado largas
+]
+
+# Configuración de línea máxima
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "--verbose"
+
+[tool.coverage.run]
+source = ["."]  # Medir cobertura de todo el código
+omit = [
+    "tests/*",
+    "setup.py",
+    "venv/*",
+    "env/*",
+    ".venv/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+]
