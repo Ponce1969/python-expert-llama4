@@ -1,0 +1,4 @@
+*.py linguist-language=Python
+*.md linguist-detectable=true
+*.yml linguist-detectable=true
+*.yaml linguist-detectable=true
