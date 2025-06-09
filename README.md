@@ -16,10 +16,11 @@ Una aplicación de línea de comandos especializada en Python que aprovecha el m
   - Comandos intuitivos con explicaciones claras
   - Indicadores visuales de progreso durante la generación
 
-- **Streaming optimizado** 
+- **Streaming optimizado y visual mejorado** 
   - Respuestas en tiempo real sin saturación de memoria
   - Visualización de tokens generados progresivamente
-  - Control de fragmentos para experiencia fluida
+  - Respuestas completas y limpias en panel visual (Rich), sin cortes ni mensajes de estado mezclados
+  - Experiencia de usuario mucho más fluida y profesional
 
 - **Historial persistente avanzado** 
   - Almacenamiento en PostgreSQL para conversaciones duraderas
@@ -36,6 +37,13 @@ Una aplicación de línea de comandos especializada en Python que aprovecha el m
   - Despliegue completo con docker-compose
   - Base de datos PostgreSQL incluida
   - Configuración centralizada en archivo `.env`
+
+## 🆕 Mejoras recientes
+
+- Las respuestas del asistente ahora se muestran en un **panel visual profesional** usando [Rich](https://rich.readthedocs.io/), con título y borde destacado.
+- Se eliminaron los mensajes de estado y cortes intermedios: la respuesta es continua, clara y sin interrupciones.
+- El sistema aprovecha la ventana de tokens extendida del modelo LLaMA-4 Scout.
+- Mejor experiencia visual y de lectura para el usuario.
 
 ## 🛠️ Requisitos
 

@@ -39,13 +39,13 @@ class ConfigDict(TypedDict):
 
 # Configuración
 CONFIG: ConfigDict = {
-    'max_chunk_size': 30,  # palabras por chunk
+    'max_chunk_size': 200,  # palabras por chunk (ahora más largo para respuestas fluidas)
     'default_model': os.environ.get('DEFAULT_MODEL', 'meta-llama/llama-4-scout-17b-16e-instruct'),
     'default_temperature': float(os.environ.get('DEFAULT_TEMPERATURE', 0.3)),
     'default_max_tokens': int(os.environ.get('DEFAULT_MAX_TOKENS', 8192)),  # Máximo soportado por el modelo
     'show_usage': os.environ.get('SHOW_USAGE', 'true').lower() == 'true',
     'auto_scroll': True,   # auto-scroll en respuestas largas
-    'confirm_continue': True  # pedir confirmación para continuar respuestas largas
+    'confirm_continue': False  # mostrar respuestas completas sin pausar
 }
 
 # Configuración de la aplicación
@@ -117,32 +117,16 @@ def process_stream(
                 current_chunk.append(chunk)
                 full_response.append(chunk)
 
-                # Actualizar estado
-                if CONFIG['show_usage'] and 'usage' in chunk_data:
-                    usage = chunk_data['usage']
-                    status.update(
-                        f"[bold green]Generando...[/bold green] "
-                        f"[dim]({usage['total_tokens']} tokens)[/dim]"
-                    )
-
-                # Mostrar el chunk actual
-                if chunk.strip():
-                    console.print(chunk, end="", highlight=False)
-
-                # Manejar pausa si el chunk es grande
-                if (len(''.join(current_chunk).split()) > int(CONFIG['max_chunk_size']) * 3 and
-                    CONFIG['confirm_continue'] and not chunk_data.get('finished')):
-                    console.print("\n[bold yellow]\n--- Presiona Enter para continuar (q para salir) ---[/bold yellow]")
-                    user_input = input().lower()
-                    if user_input == 'q':
-                        break
-                    current_chunk = []
+            # Mostrar la respuesta final en un panel limpio
+            respuesta_final = ''.join(full_response).strip()
+            if respuesta_final:
+                console.print(Panel(respuesta_final, title="🤖 Respuesta del Asistente", border_style="magenta", expand=False))
 
             # Mostrar resumen
             end_time = time.time()
             console.print(f"\n[dim]Tiempo de generación: {end_time - start_time:.2f}s[/dim]")
 
-            return ''.join(full_response), {
+            return respuesta_final, {
                 'model': model,
                 'tokens': chunk_data.get('usage', {}).get('total_tokens', 0) if 'chunk_data' in locals() else 0,
                 'time_elapsed': end_time - start_time
